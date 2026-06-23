@@ -1,10 +1,13 @@
 {
-  "name": "bandcamp-utils",
+  "name": "bu-for-bandcamp",
   "version": "1.0.3",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "scripts": {
-    "build": "esbuild src/content.ts --bundle --outfile=extension/content.js --platform=browser && esbuild src/content.ts --bundle --format=iife --platform=browser | (printf 'javascript:'; cat) > bookmarklet.js",
-    "release": "yarn build && yarn version && git push --follow-tags"
+    "build": "node build.mjs",
+    "package": "node build.mjs --zip",
+    "typecheck": "tsc --noEmit",
+    "release": "yarn version && git push --follow-tags"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

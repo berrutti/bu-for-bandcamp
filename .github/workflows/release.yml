@@ -1,12 +1,14 @@
-name: Release Extension
+name: Release
 
+# Tag a version to trigger a release, e.g. `yarn release` (bumps package.json,
+# tags, pushes). The manifest version is derived from package.json at build time.
 on:
   push:
     tags:
       - "v*"
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -16,21 +18,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: yarn
 
       - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
+      - run: yarn package
 
-      - run: yarn build
-
-      - name: Sync manifest version
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          jq --arg v "$VERSION" '.version = $v' extension/manifest.json > extension/manifest.tmp.json
-          mv extension/manifest.tmp.json extension/manifest.json
-
-      - name: Zip extension
-        run: zip -r bandcamp-utils.zip extension/
-
-      - name: Create release
+      - name: Attach builds to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: bandcamp-utils.zip
+          files: |
+            dist/chrome.zip
+            dist/firefox.zip
+
+      # Publishes to the stores. Requires repo secret SUBMIT_KEYS (JSON) and each
+      # extension registered once in each store. See README "Publishing". Remove a
+      # *-file line to skip that store.
+      - name: Publish to web stores
+        uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.SUBMIT_KEYS }}
+          chrome-file: dist/chrome.zip
+          firefox-file: dist/firefox.zip
+          edge-file: dist/chrome.zip

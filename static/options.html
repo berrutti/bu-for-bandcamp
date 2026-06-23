@@ -1,0 +1,56 @@
+<!--
+  BU for Bandcamp - Enhance your experience.
+  Copyright (C) 2026 Matias Berrutti
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>BU for Bandcamp Settings</title>
+    <style>
+      body {
+        font-family: -apple-system, Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        margin: 24px;
+        max-width: 480px;
+        color: #222;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 16px;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      .hint {
+        color: #666;
+        margin: 4px 0 0 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>BU for Bandcamp</h1>
+    <label>
+      <input type="checkbox" id="showCartButton" />
+      Show the add-to-cart button in the bottom player
+    </label>
+    <p class="hint">Buys the track currently playing, at the price you set.</p>
+    <script src="options.js"></script>
+  </body>
+</html>

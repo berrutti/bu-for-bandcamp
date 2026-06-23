@@ -1,47 +1,41 @@
-# Bandcamp Utils
-Utils for Bandcamp: a better player and an experimental click-to-add-to-cart feature.
+# BU for Bandcamp
+Enhance your Bandcamp experience. BU stands for BU Utilities.
 
 ![Screenshot](images/screenshot.png)
 
-## Overview
-This utility enhances the Bandcamp music listening experience by providing a user-friendly player that remains fixed at the bottom of the screen. Unlike the default Bandcamp player, which can be cumbersome to navigate, our utility offers several advantages:
+## Features
+- Player stays pinned at the bottom, so it never scrolls out of view.
+- Click anywhere on the bar to jump to that point in the track.
+- Songs play one after another without scrolling back to the top.
+- Previous and next buttons to move between tracks.
+- Buy a track in one click: a price field and an "add to cart" button. You can set the price with no page navigation.
 
-## Key Features
-- Continuous Playback: Easily listen to multiple songs in succession without having to scroll back to the top of the page.
-- Enhanced Controls: Our player allows for seamless control over playback, including precise jumping to any point in the song with a single click (No need to drag and drop).
-- Always Visible: The player remains visible at the bottom of the page, similar to popular music streaming platforms like Spotify.
-- Convenient Navigation: Quickly move between songs with intuitive previous and next buttons.
-- One-click Add to Cart: On album pages, "buy track" links are replaced with a price label and a 🛒 button. On track pages, the 🛒 button in the player opens the buy dialog pre-filled with the minimum price and clicks "Add to cart" for you - no page navigation required.
+## Install
 
-## How to Use
+**From a release:**
+1. Download `chrome.zip` (Chrome/Edge/Brave) or `firefox.zip` from the [latest release](../../releases/latest) and unzip it.
+2. Chrome/Edge: open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, select the folder.
+3. Firefox: open `about:debugging` → **This Firefox** → **Load Temporary Add-on**, pick `manifest.json` in the unzipped folder.
 
-There are two ways to use this:
+**From source:** `yarn install && yarn build`, then load `dist/chrome` unpacked.
 
-### Chrome Extension (recommended)
+## Build
 
-**Option A: Download from releases (no setup required):**
-1. Download `bandcamp-utils.zip` from the [latest release](../../releases/latest).
-2. Unzip it.
-3. Open `chrome://extensions` in Chrome.
-4. Enable **Developer mode** (toggle in the top-right corner).
-5. Click **Load unpacked** and select the unzipped `extension/` folder.
+- `yarn build` — builds `dist/chrome` and `dist/firefox`.
+- `yarn package` — adds `dist/chrome.zip` / `dist/firefox.zip` for store upload.
+- `yarn typecheck` — type-check only.
 
-**Option B: Clone and build:**
-1. Clone this repo and run `yarn install && yarn build`.
-2. Open `chrome://extensions` in Chrome.
-3. Enable **Developer mode** (toggle in the top-right corner).
-4. Click **Load unpacked** and select the `extension/` folder.
+Sources are in `src/` (`content.ts` isolated world, `bridge.ts` main world for the cart, `options.ts` settings). The shared manifest is `manifest.base.json`; per-browser fields are added by `build.mjs`.
 
-The extension runs automatically on every `*.bandcamp.com` page. To iterate, edit `src/content.ts`, run `yarn build`, click the reload icon on the extension, and refresh the Bandcamp tab.
+## Release
 
-### Bookmarklet
-Copy the contents of `bookmarklet.js` and paste it into the URL field of a new browser bookmark. Click the bookmark on any Bandcamp page to activate it.
-
-## Feedback and Contributions
-We welcome feedback and contributions from the community to further enhance this utility. Feel free to submit issues, feature requests, or pull requests via GitHub.
+Label a PR `release:patch` / `release:minor` / `release:major` and merge it. `auto-release.yml` bumps the version and pushes a tag; `release.yml` builds the zips and publishes to the Chrome, Firefox, and Edge stores. Needs `RELEASE_PAT` and `SUBMIT_KEYS` repo secrets.
 
 ## License
-This project is licensed under the MIT License. Feel free to use, modify, and distribute the code according to the terms of the license.
 
-## Acknowledgments
-This player is based in every other modern player, such as Spotify's or Beatport's. All the code was written by me.
+BU for Bandcamp - Enhance your experience.  
+Copyright (C) 2026 Matias Berrutti
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+See the [LICENSE](LICENSE) file for the full terms.
