@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "BU for Bandcamp",
+  "description": "BU for Bandcamp: Enhance your experience",
+  "homepage_url": "https://berrutti.github.io/bandcamp/",
+  "permissions": ["storage"],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.bandcamp.com/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_end",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.bandcamp.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
