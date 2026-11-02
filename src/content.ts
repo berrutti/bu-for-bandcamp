@@ -146,9 +146,11 @@ const createPriceInput = (colors: Colors): HTMLInputElement => {
   input.step = "0.01";
   input.required = true;
   input.placeholder = "…";
+  // Firefox keeps the number spinners unless the appearance is textfield; Chrome ignores the -moz- line.
   input.style.cssText = `
     appearance: none;
     -webkit-appearance: none;
+    -moz-appearance: textfield;
     width: 48px;
     font-family: inherit;
     font-size: 0.85em;

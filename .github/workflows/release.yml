@@ -22,9 +22,20 @@ jobs:
 
       - run: yarn install --frozen-lockfile
       - run: yarn typecheck
+
+      # The version only lives in the tag, and Firefox reviewers rebuild from source.zip, so it
+      # has to be in package.json for both the build and the source package.
+      - name: Use the tag's version
+        run: >
+          node -e 'const fs = require("fs");
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          pkg.version = process.env.GITHUB_REF_NAME.replace(/^v/, "");
+          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");'
+
       - run: yarn package
-        env:
-          EXTENSION_VERSION: ${{ github.ref_name }}
+
+      - name: Package the source for Firefox review
+        run: git ls-files -z -- ':!docs' ':!store' ':!images' | xargs -0 zip -q dist/source.zip
 
       - name: Attach builds to the GitHub release
         uses: softprops/action-gh-release@v2
@@ -33,12 +44,39 @@ jobs:
           files: |
             dist/chrome.zip
             dist/firefox.zip
+            dist/source.zip
 
-      # Fails until the extension has been registered once in each store.
-      - name: Publish to web stores
+      # One secret per store: a store is published once its secret exists, and the others are skipped.
+      # They stay separate because GitHub only hides exact secret values in logs, not pieces of one.
+      - name: Check which stores are set up
+        id: stores
+        env:
+          CHROME: ${{ secrets.SUBMIT_KEYS_CHROME }}
+          FIREFOX: ${{ secrets.SUBMIT_KEYS_FIREFOX }}
+          EDGE: ${{ secrets.SUBMIT_KEYS_EDGE }}
+        run: |
+          echo "chrome=$([ -n "$CHROME" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "firefox=$([ -n "$FIREFOX" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "edge=$([ -n "$EDGE" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to the Chrome Web Store
+        if: steps.stores.outputs.chrome == 'true'
         uses: PlasmoHQ/bpp@v3
         with:
-          keys: ${{ secrets.SUBMIT_KEYS }}
+          keys: ${{ secrets.SUBMIT_KEYS_CHROME }}
           chrome-file: dist/chrome.zip
+
+      - name: Publish to Firefox Add-ons
+        if: steps.stores.outputs.firefox == 'true'
+        uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.SUBMIT_KEYS_FIREFOX }}
           firefox-file: dist/firefox.zip
+          source-file: dist/source.zip
+
+      - name: Publish to Edge Add-ons
+        if: steps.stores.outputs.edge == 'true'
+        uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.SUBMIT_KEYS_EDGE }}
           edge-file: dist/chrome.zip
