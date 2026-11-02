@@ -33,7 +33,7 @@ Sources are in `src/` (`content.ts` isolated world, `bridge.ts` main world for t
 
 ## Release
 
-Label a PR `release:patch` / `release:minor` / `release:major` and merge it. `auto-release.yml` bumps the version and pushes a tag; `release.yml` builds the zips and publishes to the Chrome, Firefox, and Edge stores. Needs `RELEASE_PAT` and `SUBMIT_KEYS` repo secrets.
+Label a PR `release:patch` / `release:minor` / `release:major` and merge it. `auto-release.yml` pushes a tag with the next version, worked out from the last tag (`package.json` isn't bumped); `release.yml` builds the zips and publishes to the Chrome, Firefox, and Edge stores. Needs the `SUBMIT_KEYS` repo secret.
 
 ## License
 

@@ -4,9 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   release:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -21,10 +23,13 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn typecheck
       - run: yarn package
+        env:
+          EXTENSION_VERSION: ${{ github.ref_name }}
 
       - name: Attach builds to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           files: |
             dist/chrome.zip
             dist/firefox.zip
