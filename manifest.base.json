@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BU for Bandcamp",
-  "description": "BU for Bandcamp: Enhance your experience",
+  "description": "BU for Bandcamp",
   "homepage_url": "https://berrutti.github.io/bu-for-bandcamp/",
   "permissions": ["storage"],
   "options_ui": {

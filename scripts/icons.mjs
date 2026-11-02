@@ -18,17 +18,19 @@
 import { Resvg } from "@resvg/resvg-js";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 
-const ICONS = "static/icons";
+const SOURCE = "assets/icons";
+const OUTPUT = "static/icons";
 
 const render = (svg, size) =>
   new Resvg(svg, { fitTo: { mode: "width", value: size } }).render().asPng();
 
 // The full icon's progress-bar thumb turns to mush below 48px.
-const small = await readFile(`${ICONS}/icon-small.svg`, "utf8");
-const full = await readFile(`${ICONS}/icon.svg`, "utf8");
+const small = await readFile(`${SOURCE}/icon-small.svg`, "utf8");
+const full = await readFile(`${SOURCE}/icon.svg`, "utf8");
 
-for (const size of [16, 32]) await writeFile(`${ICONS}/icon-${size}.png`, render(small, size));
-for (const size of [48, 96, 128]) await writeFile(`${ICONS}/icon-${size}.png`, render(full, size));
+await mkdir(OUTPUT, { recursive: true });
+for (const size of [16, 32]) await writeFile(`${OUTPUT}/icon-${size}.png`, render(small, size));
+for (const size of [48, 96, 128]) await writeFile(`${OUTPUT}/icon-${size}.png`, render(full, size));
 
 // Chrome Web Store asks for 96px artwork centered in a transparent 128px canvas.
 const inner = full.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
@@ -38,6 +40,6 @@ await mkdir("store", { recursive: true });
 await mkdir("docs", { recursive: true });
 await writeFile("store/chrome-icon-128.png", render(padded, 128));
 await writeFile("store/edge-logo-300.png", render(full, 300));
-await copyFile(`${ICONS}/icon.svg`, "docs/icon.svg");
+await copyFile(`${SOURCE}/icon.svg`, "docs/icon.svg");
 
 console.log("icons written to static/icons, store/ and docs/");

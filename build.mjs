@@ -17,14 +17,15 @@
  */
 import { build } from "esbuild";
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 
 const ALL_TARGETS = ["chrome", "firefox"];
 const GECKO_ID = "bu-for-bandcamp@berrutti.github.io";
 // AMO requires a data collection declaration, which Firefox supports from 142 on
 // Android (140 on desktop). That also covers `world: "MAIN"` (128+) for bridge.ts.
 const GECKO_MIN_VERSION = "142.0";
+// Content-script `world: "MAIN"` (bridge.ts) needs Chrome 111; Edge follows Chrome's versions.
+const CHROME_MIN_VERSION = "111";
 
 const args = process.argv.slice(2);
 const zip = args.includes("--zip");
@@ -33,16 +34,16 @@ const browsers = targets.length ? targets : ALL_TARGETS;
 
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 const base = JSON.parse(await readFile("manifest.base.json", "utf8"));
-// Releases are versioned by their git tag, since main is protected and package.json isn't bumped.
-const version = (process.env.EXTENSION_VERSION ?? pkg.version).replace(/^v/, "");
+const iconSizes = (await readdir("static/icons"))
+  .map((file) => file.match(/^icon-(\d+)\.png$/)?.[1])
+  .filter(Boolean)
+  .map(Number)
+  .sort((a, b) => a - b);
 
 const manifestFor = (browser) => {
-  const manifest = { ...base, version };
-  if (existsSync("static/icons")) {
-    manifest.icons = Object.fromEntries(
-      [16, 32, 48, 96, 128].map((size) => [size, `icons/icon-${size}.png`])
-    );
-  }
+  const manifest = { ...base, version: pkg.version };
+  manifest.icons = Object.fromEntries(iconSizes.map((size) => [size, `icons/icon-${size}.png`]));
+  if (browser === "chrome") manifest.minimum_chrome_version = CHROME_MIN_VERSION;
   if (browser === "firefox") {
     manifest.browser_specific_settings = {
       gecko: {
@@ -70,7 +71,7 @@ for (const browser of browsers) {
     legalComments: "none",
   });
 
-  if (existsSync("static")) await cp("static", outdir, { recursive: true });
+  await cp("static", outdir, { recursive: true });
   await writeFile(`${outdir}/manifest.json`, `${JSON.stringify(manifestFor(browser), null, 2)}\n`);
 
   if (zip) {

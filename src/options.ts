@@ -15,12 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-import { loadSettings, saveSetting, SETTINGS_DEFAULTS, type Settings } from "./settings";
-
-const keys = Object.keys(SETTINGS_DEFAULTS) as (keyof Settings)[];
+import { loadSettings, saveSetting, SETTING_KEYS } from "./settings";
 
 void loadSettings().then((settings) => {
-  for (const key of keys) {
+  for (const key of SETTING_KEYS) {
     const checkbox = document.getElementById(key);
     if (!(checkbox instanceof HTMLInputElement)) continue;
     checkbox.checked = settings[key];

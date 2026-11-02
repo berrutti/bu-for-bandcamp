@@ -17,10 +17,11 @@
  */
 // Runs in the page's main world, the only place Bandcamp's cart is reachable.
 // It must be the `Sidecart` instance: `Cart` is the class and throws on `this.cart_items`.
+import type { BandcampCartItem } from "./bandcamp";
 import { serveAddToCart } from "./cart-events";
 
 interface BandcampCart {
-  add_to_cart: (item: Record<string, unknown>) => void;
+  add_to_cart: (item: BandcampCartItem) => void;
 }
 
 declare global {
@@ -29,7 +30,7 @@ declare global {
   }
 }
 
-serveAddToCart(document, (item) => {
+serveAddToCart<BandcampCartItem>(document, (item) => {
   if (!window.Sidecart) throw new Error("window.Sidecart is not available");
   window.Sidecart.add_to_cart(item);
 });

@@ -17,14 +17,12 @@
  */
 // Details are JSON strings because Firefox hides objects created in one world
 // (isolated content script vs. page) from the other; strings pass through.
-export const ADD_TO_CART_EVENT = "bcutils-add-to-cart";
-export const ADD_TO_CART_RESULT_EVENT = "bcutils-add-to-cart-result";
+export const ADD_TO_CART_EVENT = "bu-add-to-cart";
+export const ADD_TO_CART_RESULT_EVENT = "bu-add-to-cart-result";
 
-type CartItem = Record<string, unknown>;
-
-interface AddToCartRequest {
+interface AddToCartRequest<T> {
   requestId: number;
-  item: CartItem;
+  item: T;
 }
 
 interface AddToCartResult {
@@ -48,9 +46,9 @@ const dispatch = (target: EventTarget, type: string, payload: object): void => {
 
 let nextRequestId = 0;
 
-export const requestAddToCart = (
+export const requestAddToCart = <T extends object>(
   target: EventTarget,
-  item: CartItem,
+  item: T,
   timeoutMs = 3000
 ): Promise<boolean> =>
   new Promise((resolve) => {
@@ -68,19 +66,19 @@ export const requestAddToCart = (
     target.addEventListener(ADD_TO_CART_RESULT_EVENT, onResult);
     // The bridge replies from inside dispatch; this only fires if it never loaded.
     timer = setTimeout(() => finish(false), timeoutMs);
-    dispatch(target, ADD_TO_CART_EVENT, { requestId, item } satisfies AddToCartRequest);
+    dispatch(target, ADD_TO_CART_EVENT, { requestId, item } satisfies AddToCartRequest<T>);
   });
 
-export const serveAddToCart = (target: EventTarget, addToCart: (item: CartItem) => void): void => {
+export const serveAddToCart = <T>(target: EventTarget, addToCart: (item: T) => void): void => {
   target.addEventListener(ADD_TO_CART_EVENT, (event) => {
-    const request = parseDetail<AddToCartRequest>(event);
+    const request = parseDetail<AddToCartRequest<T>>(event);
     if (!request) return;
     let ok = true;
     try {
       addToCart(request.item);
     } catch (err) {
       ok = false;
-      console.error("[bandcamp-utils] add_to_cart failed:", err);
+      console.error("[BU for Bandcamp] adding to cart failed:", err);
     }
     dispatch(target, ADD_TO_CART_RESULT_EVENT, { requestId: request.requestId, ok } satisfies AddToCartResult);
   });
