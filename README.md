@@ -1,5 +1,6 @@
 # BU for Bandcamp
-Enhance your Bandcamp experience. BU stands for BU Utilities.
+
+Enhance your Bandcamp experience.
 
 ![Screenshot](images/screenshot.png)
 
