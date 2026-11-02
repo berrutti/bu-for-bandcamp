@@ -1,9 +1,5 @@
 name: Auto Release
 
-# Merge a PR to main with a release:patch / release:minor / release:major label
-# and this bumps package.json, commits, and pushes a vX.Y.Z tag. The tag (pushed
-# with RELEASE_PAT so it triggers other workflows) kicks off release.yml, which
-# builds the zips and publishes to the web stores.
 on:
   pull_request:
     types: [closed]
@@ -27,6 +23,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # Not GITHUB_TOKEN: tags pushed with it don't trigger release.yml.
           token: ${{ secrets.RELEASE_PAT }}
 
       - uses: actions/setup-node@v4
@@ -48,8 +45,8 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          NEXT=$(npm version ${{ steps.bump.outputs.type }} --no-git-tag-version)
-          echo "version=${NEXT#v}" >> "$GITHUB_OUTPUT"
+          yarn version --${{ steps.bump.outputs.type }} --no-git-tag-version
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Commit and tag
         run: |

@@ -1,7 +1,5 @@
 name: Release
 
-# Tag a version to trigger a release, e.g. `yarn release` (bumps package.json,
-# tags, pushes). The manifest version is derived from package.json at build time.
 on:
   push:
     tags:
@@ -31,9 +29,7 @@ jobs:
             dist/chrome.zip
             dist/firefox.zip
 
-      # Publishes to the stores. Requires repo secret SUBMIT_KEYS (JSON) and each
-      # extension registered once in each store. See README "Publishing". Remove a
-      # *-file line to skip that store.
+      # Fails until the extension has been registered once in each store.
       - name: Publish to web stores
         uses: PlasmoHQ/bpp@v3
         with:

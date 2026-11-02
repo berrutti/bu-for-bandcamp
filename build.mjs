@@ -15,20 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-// Cross-browser build pipeline.
-//   node build.mjs                -> builds dist/chrome and dist/firefox
-//   node build.mjs chrome         -> builds only that target
-//   node build.mjs --zip          -> also writes dist/<target>.zip for store upload
 import { build } from "esbuild";
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
 const ALL_TARGETS = ["chrome", "firefox"];
-// Firefox needs a stable add-on id, and content-script `world: "MAIN"` (used by
-// bridge.ts to reach Bandcamp's Cart) is only supported from Firefox 128.
 const GECKO_ID = "bu-for-bandcamp@berrutti.github.io";
-const GECKO_MIN_VERSION = "128.0";
+// AMO requires a data collection declaration, which Firefox supports from 142 on
+// Android (140 on desktop). That also covers `world: "MAIN"` (128+) for bridge.ts.
+const GECKO_MIN_VERSION = "142.0";
 
 const args = process.argv.slice(2);
 const zip = args.includes("--zip");
@@ -41,11 +37,17 @@ const base = JSON.parse(await readFile("manifest.base.json", "utf8"));
 const manifestFor = (browser) => {
   const manifest = { ...base, version: pkg.version };
   if (existsSync("static/icons")) {
-    manifest.icons = { 16: "icons/icon-16.png", 48: "icons/icon-48.png", 128: "icons/icon-128.png" };
+    manifest.icons = Object.fromEntries(
+      [16, 32, 48, 96, 128].map((size) => [size, `icons/icon-${size}.png`])
+    );
   }
   if (browser === "firefox") {
     manifest.browser_specific_settings = {
-      gecko: { id: GECKO_ID, strict_min_version: GECKO_MIN_VERSION },
+      gecko: {
+        id: GECKO_ID,
+        strict_min_version: GECKO_MIN_VERSION,
+        data_collection_permissions: { required: ["none"] },
+      },
     };
   }
   return manifest;

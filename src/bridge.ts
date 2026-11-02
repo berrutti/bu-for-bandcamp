@@ -15,19 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-// Runs in the page's main world (see manifest content_scripts "world": "MAIN")
-// so it can reach Bandcamp's own cart controller, which our isolated content
-// script cannot. It listens for the CustomEvent dispatched by content.ts and
-// forwards the add through the live cart instance's add_to_cart, the same call
-// Bandcamp's native buy buttons make, so the cart model, sidecart rendering,
-// and show/hide animation all stay in sync.
-//
-// `Sidecart` is the initialized cart instance (it holds cart_items/sync_num/…);
-// `Cart` is the class/prototype and has no instance state, so calling
-// add_to_cart on it throws on `this.cart_items.length`.
-//
-// content.ts builds the full item object (matching the shape Bandcamp's own buy
-// button passes), so we forward it verbatim.
+// Runs in the page's main world, the only place Bandcamp's cart is reachable.
+// It must be the `Sidecart` instance: `Cart` is the class and throws on `this.cart_items`.
+import { serveAddToCart } from "./cart-events";
 
 interface BandcampCart {
   add_to_cart: (item: Record<string, unknown>) => void;
@@ -39,18 +29,7 @@ declare global {
   }
 }
 
-document.addEventListener("bcutils-add-to-cart", (event) => {
-  const detail = (event as CustomEvent<string>).detail;
-  try {
-    const item = JSON.parse(detail) as Record<string, unknown>;
-    if (!window.Sidecart) {
-      console.error("[bandcamp-utils] window.Sidecart is not available");
-      return;
-    }
-    window.Sidecart.add_to_cart(item);
-  } catch (err) {
-    console.error("[bandcamp-utils] bridge add_to_cart failed:", err);
-  }
+serveAddToCart(document, (item) => {
+  if (!window.Sidecart) throw new Error("window.Sidecart is not available");
+  window.Sidecart.add_to_cart(item);
 });
-
-export {};

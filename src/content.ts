@@ -15,159 +15,110 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-interface ChromeStorageArea {
-  get: (defaults: Record<string, unknown>, cb: (items: Record<string, unknown>) => void) => void;
-  set: (items: Record<string, unknown>) => void;
-}
-declare const chrome: { storage?: { sync: ChromeStorageArea } } | undefined;
-
-const SETTINGS_DEFAULTS = { showCartButton: true };
-
-const getSetting = <K extends keyof typeof SETTINGS_DEFAULTS>(
-  key: K,
-  cb: (value: (typeof SETTINGS_DEFAULTS)[K]) => void
-): void => {
-  try {
-    chrome?.storage?.sync.get(SETTINGS_DEFAULTS, (items) => {
-      cb(items[key] as (typeof SETTINGS_DEFAULTS)[K]);
-    });
-  } catch {
-    cb(SETTINGS_DEFAULTS[key]);
-  }
-};
+import { requestAddToCart } from "./cart-events";
+import { cachedQuery } from "./dom";
+import { loadSettings, onSettingsChanged, type Settings } from "./settings";
+import { applyMinimumPrice, createTrackDataCache, toTrackPath, type TrackData } from "./tracks";
 
 const getAudioElement = (): HTMLAudioElement | null => {
   return document.querySelector("audio[src*='bcbits.com']");
 };
 
-// ---------------------------------------------------------------------------
-// Icons (inline SVG instead of emoji: extension content scripts often lack a
-// color-emoji font and silently render emoji as invisible monochrome glyphs)
-// ---------------------------------------------------------------------------
-
-const icon = (pathD: string): string =>
-  `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display:block;"><path d="${pathD}"/></svg>`;
-
-const ICONS = {
-  cart: icon(
-    "M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"
-  ),
-  check: icon("M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"),
+const ICON_PATHS = {
+  cart: "M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z",
+  check: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+  error:
+    "M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z",
 };
 
-// ---------------------------------------------------------------------------
-// Tralbum data helpers
-// ---------------------------------------------------------------------------
+type IconName = keyof typeof ICON_PATHS;
 
-
-interface TralbumCurrent {
-  minimum_price: number | null;
-  set_price: number | null;
-  title: string;
-  band_id: number;
-  id: number;
-  currency?: string;
-}
+// Inline SVG, not emoji: content scripts often lack a color-emoji font and render emoji invisible.
+const createIcon = (name: IconName): SVGSVGElement => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("fill", "currentColor");
+  svg.style.display = "block";
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", ICON_PATHS[name]);
+  svg.appendChild(path);
+  return svg;
+};
 
 interface TralbumData {
-  item_type: string;
-  current: TralbumCurrent;
-  trackinfo?: { title_link?: string }[];
+  current: {
+    minimum_price: number | null;
+    title: string;
+    band_id: number;
+    id: number;
+  };
+  trackinfo?: unknown[];
 }
 
-const getTralbumData = (): TralbumData | null => {
-  const el = document.querySelector<HTMLElement>("[data-tralbum]");
-  if (!el) return null;
+const parseTralbum = (root: ParentNode): TralbumData | null => {
+  const raw = root.querySelector<HTMLElement>("[data-tralbum]")?.dataset.tralbum;
+  if (!raw) return null;
   try {
-    return JSON.parse(el.dataset.tralbum!) as TralbumData;
-  } catch (e) {
+    return JSON.parse(raw) as TralbumData;
+  } catch {
     return null;
   }
 };
 
-
-// ---------------------------------------------------------------------------
-// Buy-link replacement on album pages
-// ---------------------------------------------------------------------------
-
-interface TrackData {
-  minimum_price: number | null;
-  item_id: number;
-  band_id: number;
-  item_title: string;
-  currency: string | null;
-}
-
 const fetchTrackData = async (path: string): Promise<TrackData | null> => {
   try {
     const res = await fetch(path);
-    const text = await res.text();
-    const doc = new DOMParser().parseFromString(text, "text/html");
-    const el = doc.querySelector<HTMLElement>("[data-tralbum]");
-    if (!el) return null;
-    const data = JSON.parse(el.dataset.tralbum!) as TralbumData;
-    // The item currency isn't in the tralbum JSON; it's the band's selling
-    // currency, exposed via the currency-data script's data-band-currency.
-    const currency =
-      doc.querySelector("[data-band-currency]")?.getAttribute("data-band-currency") ??
-      data.current.currency ??
-      null;
+    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+    const data = parseTralbum(doc);
+    if (!data) return null;
     return {
       minimum_price: data.current.minimum_price,
       item_id: data.current.id,
       band_id: data.current.band_id,
       item_title: data.current.title,
-      currency,
+      // Not in the tralbum JSON: it's the band's selling currency.
+      currency: doc.querySelector("[data-band-currency]")?.getAttribute("data-band-currency") ?? null,
     };
   } catch {
     return null;
   }
 };
 
-// Routes the add through Bandcamp's own main-world cart (Sidecart.add_to_cart)
-// via a CustomEvent the bridge script (bridge.ts, injected in the page's main
-// world) listens for. Going through their controller keeps their cart model,
-// sidecart rendering, and show/hide animation fully in sync, so native delete
-// works on our items too. The payload mirrors the object Bandcamp's own buy
-// button passes, so the optimistic row renders with the right title and price.
-// See bridge.ts.
-interface CartItemInput {
-  itemId: number;
-  bandId: number;
-  price: number;
-  itemTitle: string;
-  currency: string | null;
+const getTrackData = createTrackDataCache(fetchTrackData);
+
+// Mirrors the object Bandcamp's own buy button passes, so their cart renders our row correctly.
+const toCartItem = (track: TrackData, price: number): Record<string, unknown> => ({
+  checkout_now: false,
+  item_title: track.item_title,
+  item_title2: null,
+  item_type: "t",
+  item_id: track.item_id,
+  has_download: true,
+  band_id: track.band_id,
+  artist_name: null,
+  unit_price: price,
+  currency: track.currency,
+  quantity: 1,
+  option_id: null,
+  option_name: null,
+  discount_id: null,
+  discount_type: null,
+  purchase_note: null,
+  notify_me: false,
+  notify_me_label: false,
+  releases: null,
+  art_id: null,
+});
+
+interface Colors {
+  background: string;
+  color: string;
 }
 
-const requestAddToCart = (item: CartItemInput): void => {
-  const payload = {
-    checkout_now: false,
-    item_title: item.itemTitle,
-    item_title2: null,
-    item_type: "t",
-    item_id: item.itemId,
-    has_download: true,
-    band_id: item.bandId,
-    artist_name: null,
-    unit_price: item.price,
-    currency: item.currency,
-    quantity: 1,
-    option_id: null,
-    option_name: null,
-    discount_id: null,
-    discount_type: null,
-    purchase_note: null,
-    notify_me: false,
-    notify_me_label: false,
-    releases: null,
-    art_id: null,
-  };
-  document.dispatchEvent(
-    new CustomEvent("bcutils-add-to-cart", { detail: JSON.stringify(payload) })
-  );
-};
-
-const getEffectiveColors = (start: Element): { background: string; color: string } => {
+const getEffectiveColors = (start: Element): Colors => {
   const isTransparent = (value: string): boolean =>
     value === "transparent" || value === "rgba(0, 0, 0, 0)";
 
@@ -185,94 +136,138 @@ const getEffectiveColors = (start: Element): { background: string; color: string
   return { background, color: getComputedStyle(start).color };
 };
 
-const replaceBuyLinks = (): void => {
-  const data = getTralbumData();
-  if (!data || !data.trackinfo) return;
+const borderColorFor = ({ background, color }: Colors): string =>
+  `color-mix(in srgb, ${color} 35%, ${background})`;
 
-  document.querySelectorAll("td.download-col .dl_link").forEach((cell) => {
-    const link = cell.querySelector("a");
-    if (!link) return;
+const createPriceInput = (colors: Colors): HTMLInputElement => {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "0";
+  input.step = "0.01";
+  input.required = true;
+  input.placeholder = "…";
+  input.style.cssText = `
+    appearance: none;
+    -webkit-appearance: none;
+    width: 48px;
+    font-family: inherit;
+    font-size: 0.85em;
+    color: ${colors.color};
+    background-color: ${colors.background};
+    border: 1px solid ${borderColorFor(colors)};
+    border-radius: 2px;
+    padding: 1px 4px;
+  `;
+  return input;
+};
 
-    const href = link.getAttribute("href")?.split("?")[0] ?? "";
-    const { background, color } = getEffectiveColors(cell);
-    const borderColor = `color-mix(in srgb, ${color} 35%, ${background})`;
+const CART_STATES = {
+  idle: { icon: "cart", title: "Add to cart" },
+  added: { icon: "check", title: "Added to cart" },
+  error: { icon: "error", title: "Couldn't add to cart" },
+} satisfies Record<string, { icon: IconName; title: string }>;
 
-    const wrapper = document.createElement("span");
-    wrapper.style.cssText = `display:inline-flex; align-items:center; gap:4px; font-family:inherit; color:${color};`;
+const setCartState = (button: HTMLButtonElement, state: keyof typeof CART_STATES): void => {
+  button.replaceChildren(createIcon(CART_STATES[state].icon));
+  button.title = CART_STATES[state].title;
+};
 
-    const priceInput = document.createElement("input");
-    priceInput.type = "number";
-    priceInput.min = "0";
-    priceInput.step = "0.01";
-    priceInput.value = "";
-    priceInput.placeholder = "…";
-    priceInput.style.cssText = `
-      appearance: none;
-      -webkit-appearance: none;
-      width: 48px;
-      font-family: inherit;
-      font-size: 0.85em;
-      color: ${color};
-      background-color: ${background};
-      border: 1px solid ${borderColor};
-      border-radius: 2px;
-      padding: 1px 4px;
-    `;
-
-    const cartBtn = document.createElement("button");
-    cartBtn.innerHTML = ICONS.cart;
-    cartBtn.title = "Add to cart";
-    cartBtn.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      background-color: ${background};
-      border: 1px solid ${borderColor};
-      border-radius: 2px;
-      cursor: pointer;
-      color: ${color};
-      padding: 2px 4px;
-      line-height: 1;
-    `;
-    let trackData: TrackData | null = null;
-
-    cartBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const price = parseFloat(priceInput.value);
-      if (isNaN(price) || !trackData) return;
-      requestAddToCart({
-        itemId: trackData.item_id,
-        bandId: trackData.band_id,
-        price,
-        itemTitle: trackData.item_title,
-        currency: trackData.currency,
-      });
-      cartBtn.innerHTML = ICONS.check;
-    });
-
-    wrapper.appendChild(priceInput);
-    wrapper.appendChild(cartBtn);
-    cell.innerHTML = "";
-    cell.appendChild(wrapper);
-
-    fetchTrackData(href).then((data) => {
-      if (data) {
-        trackData = data;
-        if (data.minimum_price != null) {
-          priceInput.min = String(data.minimum_price);
-          priceInput.value = String(data.minimum_price);
-        }
+const attachAddToCart = (
+  button: HTMLButtonElement,
+  input: HTMLInputElement,
+  loadTrack: () => Promise<TrackData | null>
+): void => {
+  setCartState(button, "idle");
+  let pending = false;
+  button.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (pending) return;
+    pending = true;
+    try {
+      const track = await loadTrack();
+      if (!track) {
+        setCartState(button, "error");
+        return;
       }
-    });
+      applyMinimumPrice(input, track);
+      if (!input.reportValidity()) return;
+      const added = await requestAddToCart(document, toCartItem(track, input.valueAsNumber));
+      setCartState(button, added ? "added" : "error");
+    } finally {
+      pending = false;
+    }
   });
 };
 
-// ---------------------------------------------------------------------------
-// Player UI
-// ---------------------------------------------------------------------------
+const createRowCartControl = (cell: Element, path: string): HTMLElement => {
+  const colors = getEffectiveColors(cell);
 
-const createIconButton = (svg: string, onClick: () => void): HTMLButtonElement => {
+  const wrapper = document.createElement("span");
+  wrapper.style.cssText = `display:inline-flex; align-items:center; gap:4px; font-family:inherit; color:${colors.color};`;
+
+  const priceInput = createPriceInput(colors);
+
+  const cartBtn = document.createElement("button");
+  cartBtn.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    background-color: ${colors.background};
+    border: 1px solid ${borderColorFor(colors)};
+    border-radius: 2px;
+    cursor: pointer;
+    color: ${colors.color};
+    padding: 2px 4px;
+    line-height: 1;
+  `;
+
+  const loadTrack = (): Promise<TrackData | null> => getTrackData(path);
+  attachAddToCart(cartBtn, priceInput, loadTrack);
+
+  // Fetched on first hover or focus, so an album page doesn't download every track page up front.
+  const prefetch = (): void => {
+    void loadTrack().then((data) => {
+      if (data) applyMinimumPrice(priceInput, data);
+    });
+  };
+  wrapper.addEventListener("pointerenter", prefetch, { once: true });
+  wrapper.addEventListener("focusin", prefetch, { once: true });
+
+  wrapper.append(priceInput, cartBtn);
+  return wrapper;
+};
+
+interface BuyLinkRow {
+  cell: Element;
+  path: string;
+  original: ChildNode[];
+  control: HTMLElement | null;
+}
+
+const setupBuyLinks = (): ((enabled: boolean) => void) | null => {
+  if (!parseTralbum(document)?.trackinfo) return null;
+
+  const rows: BuyLinkRow[] = [];
+  document.querySelectorAll("td.download-col .dl_link").forEach((cell) => {
+    const path = toTrackPath(cell.querySelector("a")?.getAttribute("href"), location.href);
+    if (path) rows.push({ cell, path, original: Array.from(cell.childNodes), control: null });
+  });
+  if (!rows.length) return null;
+
+  return (enabled) => {
+    for (const row of rows) {
+      if (!enabled) {
+        // The original nodes, not copies, so Bandcamp's handlers on them survive.
+        row.cell.replaceChildren(...row.original);
+        continue;
+      }
+      if (!row.control) row.control = createRowCartControl(row.cell, row.path);
+      row.cell.replaceChildren(row.control);
+    }
+  };
+};
+
+const createIconButton = (): HTMLButtonElement => {
   const button = document.createElement("button");
-  button.innerHTML = svg;
   button.style.cssText = `
     display: inline-flex;
     align-items: center;
@@ -284,16 +279,10 @@ const createIconButton = (svg: string, onClick: () => void): HTMLButtonElement =
     color: inherit;
     cursor: pointer;
   `;
-  button.onclick = onClick;
   return button;
 };
 
-// Bandcamp's native progress bar only scrubs by dragging the tiny thumb. Add
-// single-click-to-seek on .progbar_empty: one click sets audio.currentTime once.
-// (Dragging here would set currentTime + play() on every pointermove, restarting
-// playback repeatedly and fighting Bandcamp's own thumb drag.)
-// Show the pointer cursor over the whole seek bar — including the fill and thumb,
-// which otherwise keep their own cursor and make it flicker back to the default.
+// The fill and thumb set their own cursor, which flickers back to the default otherwise.
 const setSeekCursor = (track: HTMLElement): void => {
   track.style.cursor = "pointer";
   track.querySelectorAll<HTMLElement>(".progbar_fill, .thumb").forEach((el) => {
@@ -301,6 +290,7 @@ const setSeekCursor = (track: HTMLElement): void => {
   });
 };
 
+// Click only: seeking on every pointermove restarts playback and fights Bandcamp's own thumb drag.
 const enableNativeSeek = (playerEl: Element): void => {
   const bar = playerEl.querySelector<HTMLElement>(".progbar_empty");
   if (!bar) return;
@@ -315,9 +305,7 @@ const enableNativeSeek = (playerEl: Element): void => {
   });
 };
 
-// The fixed bottom bar: a persistent, always-in-DOM container that holds a clone
-// of the native player. Because it's always present (just translated off-screen),
-// toggling the transform animates reliably instead of popping in.
+// Always in the DOM and translated off-screen, so showing it animates instead of popping in.
 const createBottomBar = (existingPlayer: Element): HTMLDivElement => {
   const { background, color } = getEffectiveColors(existingPlayer);
   const bar = document.createElement("div");
@@ -344,59 +332,59 @@ const createBottomBar = (existingPlayer: Element): HTMLDivElement => {
   return bar;
 };
 
-// Forwards clicks on a cloned control to Bandcamp's real control so playback,
-// prev/next etc. all run through their native handlers.
-const proxyClick = (cloneEl: Element | null, original: Element | null): void => {
+const proxyClick = (cloneEl: Element | null, original: HTMLElement | null): void => {
   if (!cloneEl || !original) return;
   cloneEl.addEventListener("click", (e) => {
-    // Stop the clone's own click from also reaching Bandcamp's delegated handlers
-    // (the clone still carries .inline_player/.playbutton classes), which would
-    // double-toggle playback and desync the two players.
+    // The clone keeps Bandcamp's classes, so their delegated handlers would toggle playback twice.
     e.preventDefault();
     e.stopImmediatePropagation();
-    (original as HTMLElement).click();
+    original.click();
   });
 };
 
-// Keeps the cloned player visually in sync with the live one: progress fill,
-// thumb position, elapsed/total time, and the play/pause button state. While the
-// user is dragging the clone's bar, progress updates are skipped so the mirror
-// doesn't fight the drag preview.
 const mirrorPlayer = (
   clone: HTMLElement,
   existingPlayer: HTMLElement,
   isDragging: () => boolean
 ): void => {
-  const sync = (): void => {
-    if (!isDragging()) {
-      const oFill = existingPlayer.querySelector<HTMLElement>(".progbar_fill");
-      const cFill = clone.querySelector<HTMLElement>(".progbar_fill");
-      const oThumb = existingPlayer.querySelector<HTMLElement>(".thumb");
-      const cThumb = clone.querySelector<HTMLElement>(".thumb");
-      // Copy both verbatim. The fill width is a percentage, but the thumb's `left`
-      // is in PIXELS relative to the bar width, so the clone's bar must keep the
-      // original's width for the thumb to line up (no width override).
-      if (oFill && cFill) cFill.style.width = oFill.style.width;
-      if (oThumb && cThumb) cThumb.style.left = oThumb.style.left;
-    }
-    const copyText = (sel: string): void => {
-      const o = existingPlayer.querySelector(sel);
-      const c = clone.querySelector(sel);
-      if (o && c) c.textContent = o.textContent;
+  const mirror = <T extends Element>(selector: string, copy: (from: T, to: T) => void) => {
+    const from = cachedQuery<T>(existingPlayer, selector);
+    const to = cachedQuery<T>(clone, selector);
+    return (): void => {
+      const o = from();
+      const c = to();
+      if (o && c) copy(o, c);
     };
-    copyText(".time_elapsed");
-    copyText(".time_total");
-    copyText(".title");
-    // The title link's href/visibility also change as the playing track changes.
-    const oTitleLink = existingPlayer.querySelector<HTMLAnchorElement>(".title_link");
-    const cTitleLink = clone.querySelector<HTMLAnchorElement>(".title_link");
-    if (oTitleLink && cTitleLink) cTitleLink.href = oTitleLink.href;
-    const oTitleSection = existingPlayer.querySelector(".title-section");
-    const cTitleSection = clone.querySelector(".title-section");
-    if (oTitleSection && cTitleSection) cTitleSection.className = oTitleSection.className;
-    const oPlay = existingPlayer.querySelector(".playbutton");
-    const cPlay = clone.querySelector(".playbutton");
-    if (oPlay && cPlay) cPlay.className = oPlay.className;
+  };
+  const copyText = (from: Element, to: Element): void => {
+    to.textContent = from.textContent;
+  };
+  const copyClass = (from: Element, to: Element): void => {
+    to.className = from.className;
+  };
+
+  const progress = [
+    mirror<HTMLElement>(".progbar_fill", (o, c) => {
+      c.style.width = o.style.width;
+    }),
+    mirror<HTMLElement>(".thumb", (o, c) => {
+      c.style.left = o.style.left;
+    }),
+  ];
+  const details = [
+    mirror(".time_elapsed", copyText),
+    mirror(".time_total", copyText),
+    mirror(".title", copyText),
+    mirror<HTMLAnchorElement>(".title_link", (o, c) => {
+      c.href = o.href;
+    }),
+    mirror(".title-section", copyClass),
+    mirror(".playbutton", copyClass),
+  ];
+
+  const sync = (): void => {
+    if (!isDragging()) progress.forEach((run) => run());
+    details.forEach((run) => run());
   };
   sync();
   const observer = new MutationObserver(sync);
@@ -409,38 +397,20 @@ const mirrorPlayer = (
   });
 };
 
-// Builds the bottom bar from a clone of the native player and shows/hides it as
-// the original scrolls in/out of view. The original is never touched, so the page
-// never jumps.
-const wireBottomBar = (
-  existingPlayer: HTMLElement,
-  bar: HTMLDivElement,
-  cartControls: HTMLDivElement | null
-): void => {
+// Clones the player instead of moving it, so the page never jumps.
+const wireBottomBar = (existingPlayer: HTMLElement, bar: HTMLDivElement): void => {
   const clone = existingPlayer.cloneNode(true) as HTMLElement;
   clone.removeAttribute("data-bcu-wired");
   clone.removeAttribute("id");
-  // The native player is a block element; inside our full-width bar it would
-  // stretch and render larger than the original. Pin it to the original's width
-  // so it matches exactly.
+  // The mirrored thumb `left` is in pixels, so both bars must be the same width.
   clone.style.width = `${existingPlayer.getBoundingClientRect().width}px`;
   clone.style.flex = "0 0 auto";
 
   bar.appendChild(clone);
-  if (cartControls) {
-    cartControls.style.position = "absolute";
-    cartControls.style.right = "16px";
-    cartControls.style.top = "50%";
-    cartControls.style.transform = "translateY(-50%)";
-    bar.appendChild(cartControls);
-  }
-  // Append inside the player's own parent so the clone inherits Bandcamp's scoped
-  // CSS and renders identically (a clone under <body> loses those styles).
+  // Under <body> the clone would lose Bandcamp's scoped CSS.
   existingPlayer.parentElement?.appendChild(bar);
 
-  // Drag-to-scrub on the clone: preview the thumb/fill while dragging and commit
-  // the seek once on release (the clone has no jQuery draggable like the original,
-  // and a click without moving seeks to that point too).
+  // The clone has no jQuery draggable, so scrub by hand and seek once on release.
   let dragging = false;
   const cloneTrack = clone.querySelector<HTMLElement>(".progbar_empty");
   const cloneFill = clone.querySelector<HTMLElement>(".progbar_fill");
@@ -451,8 +421,6 @@ const wireBottomBar = (
     const x = Math.min(rect.width, Math.max(0, clientX - rect.left));
     const fraction = x / rect.width;
     if (cloneFill) cloneFill.style.width = `${fraction * 100}%`;
-    // Center the thumb on the cursor (its `left` is the left edge, so offset by
-    // half its width) — otherwise the thumb sits to the right of the click.
     if (cloneThumb) cloneThumb.style.left = `${x - cloneThumb.offsetWidth / 2}px`;
     return fraction;
   };
@@ -485,11 +453,7 @@ const wireBottomBar = (
   proxyClick(clone.querySelector(".next_cell a"), existingPlayer.querySelector(".nextbutton"));
   mirrorPlayer(clone, existingPlayer, () => dragging);
 
-  // Reserve space so the page footer clears the bar. We pad the footer itself
-  // rather than the body, because Bandcamp manages body padding (has-rec-footer /
-  // has-corpbanner2) and overwrites ours. The footer lives in the <page-footer>
-  // custom element's (open) shadow DOM, so reach it via shadowRoot. A spacer at
-  // the end of <body> is the fallback if the footer isn't found.
+  // Pad the footer, not the body: Bandcamp rewrites body padding.
   const footerEl =
     document.querySelector("page-footer")?.shadowRoot?.querySelector<HTMLElement>("#page-footer") ??
     null;
@@ -498,9 +462,7 @@ const wireBottomBar = (
 
   let shown = false;
   const reserveSpace = (): void => {
-    // Match the bar's real height plus a small buffer (the cloned player can
-    // render a touch taller than the bar's content box). ResizeObserver also
-    // calls this so late layout from sprite icons/fonts stays in sync.
+    // +16 because the cloned player can render a bit taller than the bar's content box.
     const reserve = shown ? `${bar.offsetHeight + 16}px` : "0";
     if (footerEl) footerEl.style.paddingBottom = reserve;
     else spacer.style.height = reserve;
@@ -520,99 +482,101 @@ const wireBottomBar = (
   new ResizeObserver(reserveSpace).observe(bar);
 };
 
-// Add-to-cart control for the bottom bar: price field + 🛒 that buys the track
-// CURRENTLY PLAYING. The playing track changes as the album advances, so we track
-// the player's .title_link and re-fetch that track's data (id/price/title) on
-// change, mirroring the per-line buy buttons.
-const createTrackCartControls = (existingPlayer: HTMLElement): HTMLDivElement => {
-  const { background, color } = getEffectiveColors(existingPlayer);
-  const borderColor = `color-mix(in srgb, ${color} 35%, ${background})`;
+interface TrackCartControls {
+  element: HTMLDivElement;
+  setActive: (active: boolean) => void;
+}
+
+const createTrackCartControls = (existingPlayer: HTMLElement): TrackCartControls => {
+  const colors = getEffectiveColors(existingPlayer);
 
   const wrapper = document.createElement("div");
-  wrapper.style.cssText = "display:flex; align-items:center; gap:4px; margin-left:8px; font-family:inherit;";
+  wrapper.style.cssText =
+    "position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:4px; font-family:inherit;";
 
-  const priceInput = document.createElement("input");
-  priceInput.type = "number";
-  priceInput.step = "0.01";
-  priceInput.style.cssText = `
-    appearance: none;
-    -webkit-appearance: none;
-    width: 48px;
-    font-family: inherit;
-    font-size: 0.85em;
-    color: ${color};
-    background-color: ${background};
-    border: 1px solid ${borderColor};
-    border-radius: 2px;
-    padding: 1px 4px;
-  `;
+  const priceInput = createPriceInput(colors);
+  const cartBtn = createIconButton();
 
-  let trackData: TrackData | null = null;
+  let active = false;
+  // undefined, not null, so the first resolve always runs and sets the disabled state.
+  let currentPath: string | null | undefined;
 
-  const cartBtn = createIconButton(ICONS.cart, () => {
-    const price = parseFloat(priceInput.value);
-    if (isNaN(price) || !trackData) return;
-    requestAddToCart({
-      itemId: trackData.item_id,
-      bandId: trackData.band_id,
-      price,
-      itemTitle: trackData.item_title,
-      currency: trackData.currency,
+  attachAddToCart(cartBtn, priceInput, () =>
+    currentPath ? getTrackData(currentPath) : Promise.resolve(null)
+  );
+
+  const resolveCurrentTrack = (): void => {
+    // No title link means Bandcamp removed it, or this is a track page and the page is the track.
+    const href = existingPlayer.querySelector(".title_link")?.getAttribute("href");
+    const path = toTrackPath(href ?? location.pathname, location.href);
+    if (path === currentPath) return;
+    currentPath = path;
+    setCartState(cartBtn, "idle");
+    priceInput.value = "";
+    priceInput.min = "0";
+    priceInput.disabled = cartBtn.disabled = path === null;
+    wrapper.style.opacity = path === null ? "0.5" : "";
+    if (!path) return;
+    void getTrackData(path).then((data) => {
+      if (data && path === currentPath) applyMinimumPrice(priceInput, data);
     });
-    cartBtn.innerHTML = ICONS.check;
-  });
-  cartBtn.title = "Add to cart";
-
-  let lastPath = "";
-  const resolveCurrentTrack = async (): Promise<void> => {
-    const link = existingPlayer.querySelector<HTMLAnchorElement>(".title_link");
-    const path = link?.getAttribute("href") ?? window.location.pathname;
-    if (path === lastPath) return;
-    lastPath = path;
-    cartBtn.innerHTML = ICONS.cart; // reset the ✓ when the track changes
-    const data = await fetchTrackData(path);
-    if (!data || path !== lastPath) return;
-    trackData = data;
-    const minPrice = data.minimum_price ?? 0;
-    priceInput.min = String(minPrice);
-    priceInput.value = String(minPrice);
   };
-  resolveCurrentTrack();
-  // The player updates the title link (href/text) as it advances through tracks.
-  new MutationObserver(() => resolveCurrentTrack()).observe(existingPlayer, {
+
+  // Not the whole player: that would also fire on every elapsed-time tick.
+  const titleSection = existingPlayer.querySelector(".title-section") ?? existingPlayer;
+  new MutationObserver(() => {
+    if (active) resolveCurrentTrack();
+  }).observe(titleSection, {
     subtree: true,
     attributes: true,
     attributeFilter: ["href"],
     childList: true,
-    characterData: true,
   });
 
   wrapper.append(priceInput, cartBtn);
-  return wrapper;
+  return {
+    element: wrapper,
+    setActive: (next) => {
+      active = next;
+      wrapper.style.display = next ? "flex" : "none";
+      if (next) resolveCurrentTrack();
+    },
+  };
 };
 
-const createToolbar = (): void => {
+const setupPlayer = (): ((showCart: boolean) => void) | null => {
   const existingPlayer = document.querySelector<HTMLElement>(".inline_player");
-  if (!existingPlayer || existingPlayer.dataset.bcuWired) return;
+  if (!existingPlayer || existingPlayer.dataset.bcuWired) return null;
   existingPlayer.dataset.bcuWired = "1";
 
   enableNativeSeek(existingPlayer);
+  const bar = createBottomBar(existingPlayer);
+  wireBottomBar(existingPlayer, bar);
 
-  getSetting("showCartButton", (showCartButton) => {
-    const cartControls = showCartButton ? createTrackCartControls(existingPlayer) : null;
-    const bar = createBottomBar(existingPlayer);
-    wireBottomBar(existingPlayer, bar, cartControls);
-  });
+  let cart: TrackCartControls | null = null;
+  return (showCart) => {
+    if (showCart && !cart) {
+      cart = createTrackCartControls(existingPlayer);
+      bar.appendChild(cart.element);
+    }
+    cart?.setActive(showCart);
+  };
+};
+
+const start = async (): Promise<void> => {
+  const settings = await loadSettings();
+  const setPlayerCart = setupPlayer();
+  const setBuyLinks = setupBuyLinks();
+  const apply = (next: Settings): void => {
+    setPlayerCart?.(next.showCartButton);
+    setBuyLinks?.(next.showTrackCartButtons);
+  };
+  apply(settings);
+  onSettingsChanged(apply);
 };
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    createToolbar();
-    replaceBuyLinks();
-  });
+  document.addEventListener("DOMContentLoaded", () => void start());
 } else {
-  createToolbar();
-  replaceBuyLinks();
+  void start();
 }
-
-export {};

@@ -24,6 +24,9 @@ Enhance your Bandcamp experience. BU stands for BU Utilities.
 - `yarn build` — builds `dist/chrome` and `dist/firefox`.
 - `yarn package` — adds `dist/chrome.zip` / `dist/firefox.zip` for store upload.
 - `yarn typecheck` — type-check only.
+- `yarn test` - runs the unit tests in `tests/`.
+- `yarn lint` - lints `dist/firefox` with web-ext (run `yarn build` first).
+- `yarn icons` - renders the PNG icons and store images from `static/icons/*.svg`.
 
 Sources are in `src/` (`content.ts` isolated world, `bridge.ts` main world for the cart, `options.ts` settings). The shared manifest is `manifest.base.json`; per-browser fields are added by `build.mjs`.
 

@@ -6,12 +6,19 @@
   "scripts": {
     "build": "node build.mjs",
     "package": "node build.mjs --zip",
-    "typecheck": "tsc --noEmit",
-    "release": "yarn version && git push --follow-tags"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
+    "release": "yarn version && git push --follow-tags",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "lint": "web-ext lint --source-dir dist/firefox",
+    "icons": "node scripts/icons.mjs"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^22.20.5",
     "esbuild": "^0.25.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "web-ext": "^10.8.0"
   }
 }

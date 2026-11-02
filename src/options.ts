@@ -15,22 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-interface ChromeStorageArea {
-  get: (defaults: Record<string, unknown>, cb: (items: Record<string, unknown>) => void) => void;
-  set: (items: Record<string, unknown>) => void;
-}
-declare const chrome: { storage: { sync: ChromeStorageArea } };
+import { loadSettings, saveSetting, SETTINGS_DEFAULTS, type Settings } from "./settings";
 
-const DEFAULTS = { showCartButton: true };
+const keys = Object.keys(SETTINGS_DEFAULTS) as (keyof Settings)[];
 
-const checkbox = document.getElementById("showCartButton") as HTMLInputElement;
-
-chrome.storage.sync.get(DEFAULTS, (items) => {
-  checkbox.checked = Boolean(items.showCartButton);
+void loadSettings().then((settings) => {
+  for (const key of keys) {
+    const checkbox = document.getElementById(key);
+    if (!(checkbox instanceof HTMLInputElement)) continue;
+    checkbox.checked = settings[key];
+    checkbox.addEventListener("change", () => saveSetting(key, checkbox.checked));
+  }
 });
-
-checkbox.addEventListener("change", () => {
-  chrome.storage.sync.set({ showCartButton: checkbox.checked });
-});
-
-export {};

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BU for Bandcamp</title>
+    <meta
+      name="description"
+      content="A free browser extension for Bandcamp: a player pinned to the bottom of the window, click-to-seek, and a price field with an add-to-cart button on every track."
+    />
+    <meta property="og:title" content="BU for Bandcamp" />
+    <meta
+      property="og:description"
+      content="A better player and one-click track buying for Bandcamp. Free and open source."
+    />
+    <meta name="theme-color" content="#0d0c0b" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" /></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6" /></symbol>
+    </svg>
+
+    <header class="wrap site-header">
+      <a class="brand" href="./">
+        <img src="icon.svg" alt="" width="34" height="34" />
+        BU for Bandcamp
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#faq">Questions</a>
+        <a href="https://github.com/berrutti/bandcamp">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="wrap hero">
+        <p class="eyebrow">Free browser extension</p>
+        <h1 class="display">
+          <span class="line"><span style="--i: 0">A better <span class="hot">player</span></span></span>
+          <span class="line"><span style="--i: 1">for Bandcamp.</span></span>
+        </h1>
+        <div class="hero-meta">
+          <p class="lede">
+            Keep the player in view while you browse, jump anywhere in a track with one click, and
+            buy single tracks without leaving the page.
+          </p>
+          <div class="hero-cta">
+            <div class="actions">
+              <a class="button primary" href="https://github.com/berrutti/bandcamp/releases/latest">
+                <svg class="ic"><use href="#i-download" /></svg>
+                Download
+              </a>
+              <a class="button" href="https://github.com/berrutti/bandcamp">
+                <svg class="ic"><use href="#i-code" /></svg>
+                View source
+              </a>
+            </div>
+            <ul class="stores" aria-label="Browser stores">
+              <li><span class="store">Chrome Web Store <small>coming soon</small></span></li>
+              <li><span class="store">Firefox Add-ons <small>coming soon</small></span></li>
+              <li><span class="store">Edge Add-ons <small>coming soon</small></span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <div class="wrap">
+        <dl class="specs">
+          <div><dt>Format</dt><dd>Browser extension</dd></div>
+          <div><dt>Works in</dt><dd>Chrome, Edge, Firefox</dd></div>
+          <div><dt>Price</dt><dd>Free</dd></div>
+          <div><dt>License</dt><dd>GPL-3.0</dd></div>
+        </dl>
+      </div>
+
+      <section class="section wrap" id="screenshot">
+        <p class="kicker">Screenshot</p>
+        <figure class="shot" data-reveal>
+          <div class="shot-frame">
+            <img
+              src="screenshot.jpg"
+              width="1280"
+              height="800"
+              alt="BU for Bandcamp in Firefox on Rødhåd's Second Office album. The pinned player bar at the bottom is playing Fingerprints, with a price field and cart button for that track in the track list and in the bar."
+            />
+          </div>
+        </figure>
+      </section>
+
+      <section class="section wrap" id="features">
+        <div class="section-head">
+          <p class="kicker">Tracklist</p>
+          <h2 class="display">Enhancements</h2>
+          <p class="intro">
+            BU for Bandcamp works on top of Bandcamp's own player and cart, so everything you're used
+            to keeps working. It just gets out of your way.
+          </p>
+        </div>
+        <ol class="releases">
+          <li class="release" data-reveal style="--i: 0">
+            <div class="cover" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <defs>
+                  <pattern id="lines" width="100" height="40" patternUnits="userSpaceOnUse">
+                    <rect class="d" x="12" y="6" width="58" height="3.2" />
+                    <rect class="d" x="12" y="16" width="72" height="3.2" />
+                    <rect class="d" x="12" y="26" width="44" height="3.2" />
+                    <rect class="d" x="12" y="36" width="64" height="3.2" />
+                  </pattern>
+                </defs>
+                <rect class="k" width="100" height="100" />
+                <rect width="100" height="70" fill="url(#lines)" />
+                <rect class="b" y="70" width="100" height="30" />
+                <rect class="k" x="12" y="83" width="76" height="4" rx="2" opacity="0.25" />
+                <rect class="a" x="12" y="83" width="38" height="4" rx="2" />
+                <circle class="k" cx="50" cy="85" r="4.5" />
+              </svg>
+            </div>
+            <h3>A player that stays still</h3>
+            <p>The player is pinned to the bottom of the window, so it never scrolls out of view.</p>
+          </li>
+          <li class="release" data-reveal style="--i: 1">
+            <div class="cover" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="a" width="100" height="100" />
+                <rect class="k" x="10" y="48.5" width="80" height="3" opacity="0.3" />
+                <rect class="k" x="10" y="48.5" width="52" height="3" />
+                <circle class="ring faint" cx="62" cy="50" r="16" />
+                <circle class="ring" cx="62" cy="50" r="10" />
+                <circle class="b" cx="62" cy="50" r="5.5" />
+                <path class="cursor" d="M66 57 L66 75 L70.5 70.6 L73.6 77.6 L77 76.2 L73.9 69.3 L80 69 Z" />
+              </svg>
+            </div>
+            <h3>Click to seek</h3>
+            <p>Click anywhere on the progress bar to jump to that point, instead of dragging a tiny handle.</p>
+          </li>
+          <li class="release" data-reveal style="--i: 2">
+            <div class="cover" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="b" width="100" height="100" />
+                <rect class="a" x="8" y="41" width="84" height="12" />
+                <g class="k">
+                  <rect x="13" y="16.5" width="5" height="5" /><rect x="23" y="17.5" width="46" height="3" />
+                  <rect x="13" y="30.5" width="5" height="5" /><rect x="23" y="31.5" width="58" height="3" />
+                  <rect x="13" y="44.5" width="5" height="5" /><rect x="23" y="45.5" width="38" height="3" />
+                  <rect x="13" y="58.5" width="5" height="5" /><rect x="23" y="59.5" width="52" height="3" />
+                  <rect x="13" y="72.5" width="5" height="5" /><rect x="23" y="73.5" width="42" height="3" />
+                </g>
+              </svg>
+            </div>
+            <h3>Keep your place</h3>
+            <p>Songs play one after another without the page scrolling back to the top.</p>
+          </li>
+          <li class="release" data-reveal style="--i: 0">
+            <div class="cover" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="b" width="100" height="100" />
+                <path class="a" d="M22 30 L48 50 L22 70 Z" />
+                <path class="k" d="M42 30 L68 50 L42 70 Z" />
+                <rect class="k" x="68" y="30" width="6" height="40" />
+              </svg>
+            </div>
+            <h3>Previous and next</h3>
+            <p>Move between tracks right from the bottom bar.</p>
+          </li>
+          <li class="release" data-reveal style="--i: 1">
+            <div class="cover" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="k" width="100" height="100" />
+                <circle class="a" cx="50" cy="50" r="26" />
+                <rect class="k" x="47" y="38" width="6" height="24" />
+                <rect class="k" x="38" y="47" width="24" height="6" />
+              </svg>
+            </div>
+            <h3>Buy a track in one click</h3>
+            <p>Every track gets a price field and an add-to-cart button. Set your price and add it with no page navigation.</p>
+          </li>
+          <li class="release" data-reveal style="--i: 2">
+            <div class="cover" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="a" width="100" height="100" />
+                <rect class="k" x="22" y="28" width="56" height="20" rx="10" />
+                <circle class="b" cx="68" cy="38" r="7" />
+                <rect class="k" x="22" y="56" width="56" height="20" rx="10" opacity="0.35" />
+                <circle class="b" cx="32" cy="66" r="7" />
+              </svg>
+            </div>
+            <h3>Your call</h3>
+            <p>Turn the cart buttons on or off in the extension's settings. Changes apply right away.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section wrap manifesto" id="privacy">
+        <p class="kicker">Private by design</p>
+        <h2 class="display">
+          <span data-reveal style="--i: 0">No accounts.</span>
+          <span class="dim" data-reveal style="--i: 1">No analytics.</span>
+          <span class="hot" data-reveal style="--i: 2">No tracking.</span>
+        </h2>
+        <p class="intro">
+          BU for Bandcamp only runs on bandcamp.com, keeps two on/off settings in your browser, and adds
+          tracks through Bandcamp's own cart, so checkout and payment stay entirely with Bandcamp.
+        </p>
+        <a class="arrow-link" href="privacy.html">
+          Read the privacy policy
+          <svg class="ic"><use href="#i-arrow" /></svg>
+        </a>
+      </section>
+
+      <section class="section wrap" id="faq">
+        <div class="section-head">
+          <p class="kicker">Help</p>
+          <h2 class="display">Questions.</h2>
+          <p class="intro">
+            Something else on your mind?
+            <a href="https://github.com/berrutti/bandcamp/issues">Open an issue on GitHub</a>.
+          </p>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Is this made by Bandcamp?</summary>
+            <p>No. BU for Bandcamp is an independent, open source project and isn't affiliated with or endorsed by Bandcamp.</p>
+          </details>
+          <details>
+            <summary>Does it cost anything?</summary>
+            <p>No. It's free, and the source code is available under the GPL-3.0 license.</p>
+          </details>
+          <details>
+            <summary>Which browsers does it work in?</summary>
+            <p>Chrome, Edge and Firefox (version 142 or newer). Browsers built on Firefox, such as Zen, can install the Firefox version.</p>
+          </details>
+          <details>
+            <summary>Does it change what I pay?</summary>
+            <p>No. You choose the price, and it has to meet the artist's minimum, just like on Bandcamp. The track goes into Bandcamp's own cart and you check out on Bandcamp as usual.</p>
+          </details>
+          <details>
+            <summary>What does BU stand for?</summary>
+            <p>BU Utilities.</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-row">
+        <span>BU for Bandcamp is not affiliated with Bandcamp. &copy; 2026 Matias Berrutti.</span>
+        <nav aria-label="Footer">
+          <a href="privacy.html">Privacy</a>
+          <a href="https://github.com/berrutti/bandcamp">Source</a>
+          <a href="https://github.com/berrutti/bandcamp/issues">Support</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
