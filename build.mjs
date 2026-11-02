@@ -33,9 +33,11 @@ const browsers = targets.length ? targets : ALL_TARGETS;
 
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 const base = JSON.parse(await readFile("manifest.base.json", "utf8"));
+// Releases are versioned by their git tag, since main is protected and package.json isn't bumped.
+const version = (process.env.EXTENSION_VERSION ?? pkg.version).replace(/^v/, "");
 
 const manifestFor = (browser) => {
-  const manifest = { ...base, version: pkg.version };
+  const manifest = { ...base, version };
   if (existsSync("static/icons")) {
     manifest.icons = Object.fromEntries(
       [16, 32, 48, 96, 128].map((size) => [size, `icons/icon-${size}.png`])

@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -23,8 +24,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          # Not GITHUB_TOKEN: tags pushed with it don't trigger release.yml.
-          token: ${{ secrets.RELEASE_PAT }}
+          fetch-tags: true
 
       - uses: actions/setup-node@v4
         with:
@@ -42,18 +42,32 @@ jobs:
             echo "type=patch" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Bump version
+      # main is protected, so the version lives in the tags instead of a package.json commit.
+      - name: Work out the next version
         id: version
+        env:
+          BUMP: ${{ steps.bump.outputs.type }}
         run: |
-          yarn version --${{ steps.bump.outputs.type }} --no-git-tag-version
-          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          export LATEST_TAG="$(git tag --list 'v*.*.*' --sort=-v:refname | head -n 1)"
+          NEXT=$(node -e '
+            const parse = (v) => v.replace(/^v/, "").split(".").map(Number);
+            const newer = (a, b) => (a[0] - b[0] || a[1] - b[1] || a[2] - b[2]) > 0 ? a : b;
+            const fromTag = parse(process.env.LATEST_TAG || "v0.0.0");
+            const fromPackage = parse(require("./package.json").version);
+            const [major, minor, patch] = newer(fromTag, fromPackage);
+            const next = { major: [major + 1, 0, 0], minor: [major, minor + 1, 0], patch: [major, minor, patch + 1] };
+            console.log(next[process.env.BUMP].join("."));
+          ')
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
 
-      - name: Commit and tag
+      - name: Tag the release
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: release v${{ steps.version.outputs.version }}"
           git tag "v${{ steps.version.outputs.version }}"
-          git push origin main
           git push origin "v${{ steps.version.outputs.version }}"
+
+      # A tag pushed with the built-in token doesn't trigger release.yml, but a dispatch does.
+      - name: Start the release build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run release.yml --ref "v${{ steps.version.outputs.version }}"
