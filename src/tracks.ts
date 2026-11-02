@@ -49,12 +49,3 @@ export const createTrackDataCache = (fetcher: TrackFetcher): TrackFetcher => {
     return request;
   };
 };
-
-export const applyMinimumPrice = (
-  input: Pick<HTMLInputElement, "min" | "value">,
-  track: TrackData
-): void => {
-  if (track.minimum_price == null) return;
-  input.min = String(track.minimum_price);
-  if (input.value === "") input.value = String(track.minimum_price);
-};

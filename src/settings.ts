@@ -17,25 +17,22 @@
  */
 import { getExtensionApi } from "./ext";
 
-export type Settings = {
-  showCartButton: boolean;
-  showTrackCartButtons: boolean;
-};
-
-export const SETTINGS_DEFAULTS: Settings = {
+export const SETTINGS_DEFAULTS = {
   showCartButton: true,
   showTrackCartButtons: true,
 };
 
+export type Settings = typeof SETTINGS_DEFAULTS;
+
+export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS) as (keyof Settings)[];
+
 export const toSettings = (items: Record<string, unknown>): Settings => {
-  const read = (key: keyof Settings): boolean => {
+  const settings = { ...SETTINGS_DEFAULTS };
+  for (const key of SETTING_KEYS) {
     const value = items[key];
-    return typeof value === "boolean" ? value : SETTINGS_DEFAULTS[key];
-  };
-  return {
-    showCartButton: read("showCartButton"),
-    showTrackCartButtons: read("showTrackCartButtons"),
-  };
+    if (typeof value === "boolean") settings[key] = value;
+  }
+  return settings;
 };
 
 export const loadSettings = async (): Promise<Settings> => {

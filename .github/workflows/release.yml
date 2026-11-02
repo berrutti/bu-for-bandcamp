@@ -26,11 +26,7 @@ jobs:
       # The version only lives in the tag, and Firefox reviewers rebuild from source.zip, so it
       # has to be in package.json for both the build and the source package.
       - name: Use the tag's version
-        run: >
-          node -e 'const fs = require("fs");
-          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-          pkg.version = process.env.GITHUB_REF_NAME.replace(/^v/, "");
-          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");'
+        run: node scripts/set-version.mjs
 
       - run: yarn package
 

@@ -17,8 +17,7 @@
  */
 import { build } from "esbuild";
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 
 const ALL_TARGETS = ["chrome", "firefox"];
 const GECKO_ID = "bu-for-bandcamp@berrutti.github.io";
@@ -35,15 +34,16 @@ const browsers = targets.length ? targets : ALL_TARGETS;
 
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 const base = JSON.parse(await readFile("manifest.base.json", "utf8"));
+const iconSizes = (await readdir("static/icons"))
+  .map((file) => file.match(/^icon-(\d+)\.png$/)?.[1])
+  .filter(Boolean)
+  .map(Number)
+  .sort((a, b) => a - b);
 
 const manifestFor = (browser) => {
   const manifest = { ...base, version: pkg.version };
+  manifest.icons = Object.fromEntries(iconSizes.map((size) => [size, `icons/icon-${size}.png`]));
   if (browser === "chrome") manifest.minimum_chrome_version = CHROME_MIN_VERSION;
-  if (existsSync("static/icons")) {
-    manifest.icons = Object.fromEntries(
-      [16, 32, 48, 96, 128].map((size) => [size, `icons/icon-${size}.png`])
-    );
-  }
   if (browser === "firefox") {
     manifest.browser_specific_settings = {
       gecko: {
@@ -71,7 +71,7 @@ for (const browser of browsers) {
     legalComments: "none",
   });
 
-  if (existsSync("static")) await cp("static", outdir, { recursive: true });
+  await cp("static", outdir, { recursive: true });
   await writeFile(`${outdir}/manifest.json`, `${JSON.stringify(manifestFor(browser), null, 2)}\n`);
 
   if (zip) {

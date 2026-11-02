@@ -27,9 +27,9 @@ Enhance your Bandcamp experience.
 - `yarn typecheck` — type-check only.
 - `yarn test` - runs the unit tests in `tests/`.
 - `yarn lint` - lints `dist/firefox` with web-ext (run `yarn build` first).
-- `yarn icons` - renders the PNG icons and store images from `static/icons/*.svg`.
+- `yarn icons` - renders the PNG icons and store images from `assets/icons/*.svg`.
 
-Sources are in `src/` (`content.ts` isolated world, `bridge.ts` main world for the cart, `options.ts` settings). The shared manifest is `manifest.base.json`; per-browser fields are added by `build.mjs`.
+Sources are in `src/` (`content.ts` isolated world, which starts `player-bar.ts` and `buy-links.ts`; `bandcamp.ts` holds everything that depends on Bandcamp's page; `bridge.ts` main world for the cart, `options.ts` settings). Release versioning lives in `scripts/next-version.mjs` and `scripts/set-version.mjs`. The shared manifest is `manifest.base.json`; per-browser fields are added by `build.mjs`.
 
 Store builds are reproducible: with Node 22 and Yarn 1.22 on macOS or Linux, running `yarn install --frozen-lockfile && yarn package` in the `source.zip` attached to each release produces the same `dist/firefox.zip` and `dist/chrome.zip` that were submitted.
 
